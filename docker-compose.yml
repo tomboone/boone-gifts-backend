@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.boone-gifts-api.rule=Host(`boone-gifts-api.localhost`)"
+      - "traefik.http.routers.boone-gifts-api.entrypoints=websecure"
+      - "traefik.http.routers.boone-gifts-api.tls=true"
+      - "traefik.http.services.boone-gifts-api.loadbalancer.server.port=8000"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

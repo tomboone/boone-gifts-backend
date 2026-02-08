@@ -1,0 +1,34 @@
+version: "3"
+
+tasks:
+  app:up:
+    desc: Build and start containers in detached mode
+    cmd: docker compose up -d --build
+
+  app:down:
+    desc: Stop and remove containers
+    cmd: docker compose down
+
+  app:stop:
+    desc: Stop containers without removing them
+    cmd: docker compose stop
+
+  app:run:
+    desc: Start the FastAPI app with live reload
+    cmd: docker compose exec app uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  app:restart:
+    desc: Trigger a reload of the FastAPI app
+    cmd: docker compose exec app touch main.py
+
+  app:pip-compile:
+    desc: Compile requirements.txt from requirements.in
+    cmd: docker compose exec app uv pip compile requirements.in -o requirements.txt
+
+  app:pip-install:
+    desc: Install all dependencies from requirements.txt
+    cmd: docker compose exec app uv pip install --system -r requirements.txt
+
+  app:add:
+    desc: "Add a package to requirements.in and install it (usage: task app:add -- <package>)"
+    cmd: docker compose exec app sh -c 'echo "{{.CLI_ARGS}}" >> requirements.in && uv pip compile requirements.in -o requirements.txt && uv pip install --system -r requirements.txt'
