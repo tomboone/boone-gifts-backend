@@ -15,6 +15,11 @@ dependencies = [
     "alembic>=1.18.3",
 ]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::jwt.warnings.InsecureKeyLengthWarning",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
