@@ -4,9 +4,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN uv pip install --system -r requirements.txt
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project
 
 COPY . .
+
+ENV PATH="/opt/venv/bin:$PATH"
 
 CMD ["sleep", "infinity"]

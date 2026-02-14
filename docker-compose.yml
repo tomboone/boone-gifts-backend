@@ -3,6 +3,8 @@ services:
     build: .
     volumes:
       - .:/app
+    environment:
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.boone-gifts-api.rule=Host(`boone-gifts-api.localhost`)"

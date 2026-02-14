@@ -21,14 +21,38 @@ tasks:
     desc: Trigger a reload of the FastAPI app
     cmd: docker compose exec app touch main.py
 
-  app:pip-compile:
-    desc: Compile requirements.txt from requirements.in
-    cmd: docker compose exec app uv pip compile requirements.in -o requirements.txt
+  app:lock:
+    desc: Regenerate uv.lock from pyproject.toml
+    cmd: docker compose exec app uv lock
 
-  app:pip-install:
-    desc: Install all dependencies from requirements.txt
-    cmd: docker compose exec app uv pip install --system -r requirements.txt
+  app:sync:
+    desc: Install all dependencies from uv.lock
+    cmd: docker compose exec app uv sync --frozen
 
   app:add:
-    desc: "Add a package to requirements.in and install it (usage: task app:add -- <package>)"
-    cmd: docker compose exec app sh -c 'echo "{{.CLI_ARGS}}" >> requirements.in && uv pip compile requirements.in -o requirements.txt && uv pip install --system -r requirements.txt'
+    desc: "Add a package (usage: task app:add -- <package>)"
+    cmd: docker compose exec app uv add {{.CLI_ARGS}}
+
+  app:remove:
+    desc: "Remove a package (usage: task app:remove -- <package>)"
+    cmd: docker compose exec app uv remove {{.CLI_ARGS}}
+
+  app:test:
+    desc: Run tests
+    cmd: docker compose exec app pytest tests/ -v
+
+  app:test-file:
+    desc: "Run a specific test file (usage: task app:test-file -- tests/routers/test_auth.py)"
+    cmd: docker compose exec app pytest {{.CLI_ARGS}} -v
+
+  app:create-admin:
+    desc: "Create an admin user (usage: task app:create-admin)"
+    cmd: docker compose exec app python -m app.cli.create_admin
+
+  app:migrate:
+    desc: Run database migrations
+    cmd: docker compose exec app alembic upgrade head
+
+  app:migration:
+    desc: "Create a new migration (usage: task app:migration -- 'description')"
+    cmd: docker compose exec app alembic revision --autogenerate -m "{{.CLI_ARGS}}"
