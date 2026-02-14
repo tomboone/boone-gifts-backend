@@ -1,4 +1,7 @@
 from app.models.user import User
 from app.models.invite import Invite
+from app.models.gift_list import GiftList
+from app.models.gift import Gift
+from app.models.list_share import ListShare
 
-__all__ = ["User", "Invite"]
+__all__ = ["User", "Invite", "GiftList", "Gift", "ListShare"]

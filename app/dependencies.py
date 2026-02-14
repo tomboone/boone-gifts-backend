@@ -4,6 +4,7 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -77,3 +78,44 @@ def require_admin(
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 AdminUser = Annotated[User, Depends(require_admin)]
+
+from app.models.gift_list import GiftList
+from app.models.list_share import ListShare
+
+
+def get_list_for_owner(
+    list_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: DbSession,
+) -> GiftList:
+    gift_list = db.get(GiftList, list_id)
+    if gift_list is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if gift_list.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return gift_list
+
+
+def get_list_for_viewer(
+    list_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: DbSession,
+) -> GiftList:
+    gift_list = db.get(GiftList, list_id)
+    if gift_list is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if gift_list.owner_id == user.id:
+        return gift_list
+    share = db.execute(
+        select(ListShare).where(
+            ListShare.list_id == list_id,
+            ListShare.user_id == user.id,
+        )
+    ).scalar_one_or_none()
+    if share is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return gift_list
+
+
+OwnedList = Annotated[GiftList, Depends(get_list_for_owner)]
+ViewableList = Annotated[GiftList, Depends(get_list_for_viewer)]

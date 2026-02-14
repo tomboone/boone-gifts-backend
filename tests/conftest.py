@@ -78,3 +78,23 @@ def admin_headers(admin_token):
 @pytest.fixture
 def member_headers(member_token):
     return {"Authorization": f"Bearer {member_token}"}
+
+
+@pytest.fixture
+def sample_list(db, member_user):
+    from app.models.gift_list import GiftList
+
+    gift_list = GiftList(name="Member's Wishlist", owner_id=member_user.id)
+    db.add(gift_list)
+    db.flush()
+    return gift_list
+
+
+@pytest.fixture
+def shared_list(db, sample_list, admin_user):
+    from app.models.list_share import ListShare
+
+    share = ListShare(list_id=sample_list.id, user_id=admin_user.id)
+    db.add(share)
+    db.flush()
+    return sample_list
