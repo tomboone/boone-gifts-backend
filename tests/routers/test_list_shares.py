@@ -1,4 +1,4 @@
-def test_share_list(client, member_user, member_headers, sample_list, admin_user):
+def test_share_list(client, member_user, member_headers, sample_list, admin_user, connection):
     response = client.post(
         f"/lists/{sample_list.id}/shares",
         headers=member_headers,
@@ -86,3 +86,29 @@ def test_unshare_list_not_found(client, member_headers, sample_list):
         headers=member_headers,
     )
     assert response.status_code == 404
+
+
+def test_share_list_not_connected(client, member_headers, sample_list, db):
+    from app.models.user import User
+
+    other = User(email="unconnected@test.com", name="Unconnected", password_hash="h")
+    db.add(other)
+    db.flush()
+
+    response = client.post(
+        f"/lists/{sample_list.id}/shares",
+        headers=member_headers,
+        json={"user_id": other.id},
+    )
+    assert response.status_code == 403
+
+
+def test_share_list_connected(
+    client, member_headers, sample_list, admin_user, connection
+):
+    response = client.post(
+        f"/lists/{sample_list.id}/shares",
+        headers=member_headers,
+        json={"user_id": admin_user.id},
+    )
+    assert response.status_code == 201

@@ -22,6 +22,15 @@ def test_get_user_as_admin(client, admin_user, admin_headers):
     assert response.json()["email"] == "admin@test.com"
 
 
+def test_get_user_includes_lists(client, admin_headers, member_user, sample_list):
+    response = client.get(f"/users/{member_user.id}", headers=admin_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["lists"]) == 1
+    assert data["lists"][0]["name"] == "Member's Wishlist"
+    assert "gifts" not in data["lists"][0]
+
+
 def test_get_user_not_found(client, admin_user, admin_headers):
     response = client.get("/users/99999", headers=admin_headers)
     assert response.status_code == 404

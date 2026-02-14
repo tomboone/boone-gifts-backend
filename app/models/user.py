@@ -2,7 +2,7 @@ from datetime import datetime
 
 import bcrypt
 from sqlalchemy import String, Boolean, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -19,6 +19,10 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now()
+    )
+
+    lists: Mapped[list["GiftList"]] = relationship(
+        "GiftList", lazy="selectin", foreign_keys="GiftList.owner_id"
     )
 
     def set_password(self, password: str) -> None:

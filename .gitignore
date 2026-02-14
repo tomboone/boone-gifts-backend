@@ -26,8 +26,8 @@ venv/
 Thumbs.db
 
 # Claude
-.claude/
-CLAUDE.md
+.claude/settings.local.json
+docs/plans
 
 # Testing / Coverage
 .coverage

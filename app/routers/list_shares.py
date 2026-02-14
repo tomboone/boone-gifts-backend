@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.dependencies import CurrentUser, DbSession, OwnedList
+from app.dependencies import CurrentUser, DbSession, OwnedList, require_connection
 from app.models.list_share import ListShare
 from app.schemas.list_share import ListShareCreate, ListShareRead
 
@@ -17,6 +17,7 @@ def create_share(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot share a list with yourself.",
         )
+    require_connection(request.user_id, user, db)
     existing = db.execute(
         select(ListShare).where(
             ListShare.list_id == gift_list.id,

@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.gift_list import GiftListRead
+
 
 class UserRead(BaseModel):
     id: int
@@ -9,6 +11,7 @@ class UserRead(BaseModel):
     name: str
     role: str
     is_active: bool
+    lists: list[GiftListRead] = []
     created_at: datetime
     updated_at: datetime
 

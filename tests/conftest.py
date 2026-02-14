@@ -91,10 +91,24 @@ def sample_list(db, member_user):
 
 
 @pytest.fixture
-def shared_list(db, sample_list, admin_user):
+def shared_list(db, sample_list, admin_user, connection):
     from app.models.list_share import ListShare
 
     share = ListShare(list_id=sample_list.id, user_id=admin_user.id)
     db.add(share)
     db.flush()
     return sample_list
+
+
+@pytest.fixture
+def connection(db, admin_user, member_user):
+    from app.models.connection import Connection
+
+    conn = Connection(
+        requester_id=admin_user.id,
+        addressee_id=member_user.id,
+        status="accepted",
+    )
+    db.add(conn)
+    db.flush()
+    return conn
