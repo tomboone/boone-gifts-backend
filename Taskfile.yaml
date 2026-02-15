@@ -25,10 +25,6 @@ tasks:
     desc: Regenerate uv.lock from pyproject.toml
     cmd: docker compose exec app uv lock
 
-  sync:
-    desc: Install all dependencies from uv.lock
-    cmd: docker compose exec app uv sync --frozen
-
   add:
     desc: "Add a package (usage: task add -- <package>)"
     cmd: docker compose exec app uv add {{.CLI_ARGS}}

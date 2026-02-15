@@ -67,7 +67,6 @@ task migration -- 'description'  # Generate a new migration
 ```
 task add -- <package>      # Add a package
 task remove -- <package>   # Remove a package
-task sync                  # Install all deps from lock file
 task lock                  # Regenerate lock file
 ```
 

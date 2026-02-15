@@ -32,7 +32,6 @@ taskmigration -- 'description'  # Create a new migration
 task add -- <package>      # Add a package (updates pyproject.toml + uv.lock + installs)
 task remove -- <package>   # Remove a package (updates pyproject.toml + uv.lock + uninstalls)
 task lock                  # Regenerate uv.lock from pyproject.toml
-task sync                  # Install all deps from uv.lock
 ```
 
 ## Project Structure
