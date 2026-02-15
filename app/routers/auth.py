@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 import jwt
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Cookie, HTTPException, Response, status
 from sqlalchemy import select
 
 from app.config import settings
@@ -15,16 +15,39 @@ from app.models.user import User
 from app.schemas.auth import (
     AccessTokenResponse,
     LoginRequest,
-    RefreshRequest,
     RegisterRequest,
-    TokenResponse,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+REFRESH_COOKIE_NAME = "boone_refresh_token"
+REFRESH_COOKIE_MAX_AGE = settings.refresh_token_expire_days * 86400
 
-@router.post("/login", response_model=TokenResponse)
-def login(request: LoginRequest, db: DbSession):
+
+def set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/auth",
+        max_age=REFRESH_COOKIE_MAX_AGE,
+    )
+
+
+def delete_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/auth",
+    )
+
+
+@router.post("/login", response_model=AccessTokenResponse)
+def login(request: LoginRequest, response: Response, db: DbSession):
     user = db.execute(
         select(User).where(User.email == request.email)
     ).scalar_one_or_none()
@@ -35,14 +58,12 @@ def login(request: LoginRequest, db: DbSession):
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
-    return TokenResponse(
-        access_token=create_access_token(user),
-        refresh_token=create_refresh_token(user),
-    )
+    set_refresh_cookie(response, create_refresh_token(user))
+    return AccessTokenResponse(access_token=create_access_token(user))
 
 
-@router.post("/register", response_model=TokenResponse)
-def register(request: RegisterRequest, db: DbSession):
+@router.post("/register", response_model=AccessTokenResponse)
+def register(request: RegisterRequest, response: Response, db: DbSession):
     invite = db.execute(
         select(Invite).where(Invite.token == request.token)
     ).scalar_one_or_none()
@@ -66,17 +87,22 @@ def register(request: RegisterRequest, db: DbSession):
 
     db.flush()
 
-    return TokenResponse(
-        access_token=create_access_token(user),
-        refresh_token=create_refresh_token(user),
-    )
+    set_refresh_cookie(response, create_refresh_token(user))
+    return AccessTokenResponse(access_token=create_access_token(user))
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
-def refresh(request: RefreshRequest, db: DbSession):
+def refresh(
+    response: Response,
+    db: DbSession,
+    boone_refresh_token: str | None = Cookie(default=None),
+):
+    if boone_refresh_token is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
     try:
         payload = jwt.decode(
-            request.refresh_token,
+            boone_refresh_token,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
         )
@@ -90,4 +116,10 @@ def refresh(request: RefreshRequest, db: DbSession):
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
+    set_refresh_cookie(response, create_refresh_token(user))
     return AccessTokenResponse(access_token=create_access_token(user))
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(response: Response):
+    delete_refresh_cookie(response)
