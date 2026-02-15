@@ -5,16 +5,12 @@ FastAPI backend for the Boone Gifts project. Python 3.14, runs entirely in Docke
 
 ## Architecture
 - **Framework**: FastAPI with Uvicorn
-- **Runtime**: Docker Compose, single `app` service
-- **Database**: MySQL (shared container `mysql_db` on `proxy` network)
 - **ORM**: SQLAlchemy 2.0 with mapped columns
 - **Validation**: Pydantic v2 (v2.12+) — uses `model_config`, `model_dump()`, `from_attributes` (not Pydantic v1 patterns like `class Config`, `.dict()`, `orm_mode`)
 - **Config**: pydantic-settings with `env_prefix` and `env_file`
 - **Auth**: JWT (PyJWT) with bcrypt password hashing
 - **Migrations**: Alembic (autogenerate from SQLAlchemy models)
 - **Package management**: uv in project mode (`pyproject.toml` + `uv.lock`)
-- **Dependency workflow**: `uv add`/`uv remove` update `pyproject.toml` and `uv.lock`; `uv sync` installs from lock file
-- **Task runner**: Taskfile.yaml (go-task)
 - **Testing**: pytest + FastAPI TestClient with transactional test fixtures
 
 ## Development Workflow
@@ -49,8 +45,6 @@ Dockerfile           # Python 3.14-slim + uv, installs deps, idles
 docker-compose.yml   # App service on proxy network with Traefik labels
 Taskfile.yaml        # All dev commands under app: namespace
 alembic.ini          # Alembic config (DB URL set in env.py, not here)
-.env                 # Environment variables (gitignored)
-.env.example         # Template for .env
 app/
   __init__.py
   main.py            # FastAPI app factory with CORS, routers, /health endpoint
@@ -65,7 +59,7 @@ app/
     gift.py          # Gift model (name, description, url, price, claim tracking)
     list_share.py    # ListShare model (list_id, user_id, unique constraint)
     connection.py    # Connection model (requester_id, addressee_id, status, unique constraint)
-    collection.py      # Collection model (name, description, owner_id)
+    collection.py    # Collection model (name, description, owner_id)
     collection_item.py # CollectionItem model (collection_id, list_id, unique constraint)
   schemas/
     __init__.py
@@ -96,25 +90,8 @@ alembic/
 tests/
   __init__.py
   conftest.py        # Test fixtures: db, client, admin_user, member_user, tokens, headers, sample_list, shared_list, connection, collection, collection_item
-  models/
-    __init__.py
-    test_user.py     # User model tests (create, default role, unique email, password hashing)
-    test_invite.py   # Invite model tests (create, is_valid, expired, used)
-    test_gift_list.py  # GiftList model tests (create, no description)
-    test_gift.py     # Gift model tests (create, minimal, claim)
-    test_list_share.py # ListShare model tests (create, unique constraint)
-    test_connection.py # Connection model tests (create, accept, unique constraint)
-    test_collection.py # Collection model tests (4 tests)
-  routers/
-    __init__.py
-    test_auth.py     # Auth endpoint tests (login, register, refresh — 11 tests)
-    test_users.py    # Users CRUD tests (admin-only — 10 tests)
-    test_invites.py  # Invites CRUD tests (admin-only — 7 tests)
-    test_lists.py    # Lists CRUD tests (14 tests)
-    test_gifts.py    # Gifts CRUD + claim tests (16 tests)
-    test_list_shares.py  # List shares tests (12 tests)
-    test_connections.py  # Connection router tests (20 tests)
-    test_collections.py  # Collection router tests (18 tests)
+  models/            # Model unit tests (user, invite, gift_list, gift, list_share, connection, collection)
+  routers/           # Endpoint tests (auth, users, invites, lists, gifts, list_shares, connections, collections)
 ```
 
 ## App Entrypoint
@@ -127,64 +104,29 @@ Top-level `main.py` imports `app` from `app.main`. The app factory (`create_app(
 - **Password hashing**: bcrypt
 - **Route protection**: `get_current_user` (401 if invalid), `require_admin` (403 if not admin)
 - **Defense in depth**: `get_current_user` rejects refresh tokens and checks `is_active` — inactive users cannot authenticate even with a valid token
-- **Registration**: Invite-only — admin creates invites, invitees register with token. The registrant's email comes from the invite record, not the request body
+- **Registration**: Invite-only — the registrant's email comes from the invite record, not the request body
 - **First admin**: Created via `task app:create-admin`
+- **Gift list access**: `get_list_for_owner` (403 if not owner), `get_list_for_viewer` (403 if not owner or shared)
+- **Gift responses**: `GiftOwnerRead` (no claim fields) for owners, `GiftRead` (with claim fields) for shared users
 
-## Gift Lists
-- Any authenticated user can create lists and add gifts
-- Lists are shared with specific users via the list_shares table
-- Shared users can claim gifts; claim info is hidden from the list owner
-- Authorization: `get_list_for_owner` (403 if not owner), `get_list_for_viewer` (403 if not owner or shared)
-- Gift responses use `GiftOwnerRead` (no claim fields) for owners, `GiftRead` (with claim fields) for shared users
-- Deleting a list cascades to its gifts (`cascade="all, delete-orphan"`)
+## Environment Variables
 
-## User Connections
-- Symmetric friend-style connections with request/accept flow
-- Send requests by user_id or email; addressee accepts or rejects
-- Either party can remove an accepted connection
-- Connections gate list sharing — `require_connection` check in `POST /lists/{id}/shares`
-- Removing a connection revokes all list shares and gift claims between both users
-- Admin user endpoints remain unrestricted
-
-## Collections
-- Personal organizational layer — users group gift lists into named collections
-- Collections can contain owned lists and lists shared by connections
-- A list can appear in multiple collections
-- Owner-only access — no sharing or admin override
-- Automatic cleanup: unsharing a list or removing a connection removes affected collection items
-
-## Database
-- **MySQL shared container**: `/Users/trb74/Sites/mysql/mysql/docker-compose.yml` on the `proxy` network
-- **Dev database**: `mysql+pymysql://user:password@mysql_db:3306/boone_gifts`
-- **Test database**: `mysql+pymysql://user:password@mysql_db:3306/boone_gifts_test`
-- **Config**: Environment variables with `APP_` prefix (e.g., `APP_DATABASE_URL`), loaded from `.env`
-- **Migrations**: `task app:migrate` to apply, `task app:migration -- 'desc'` to create
-- **`cryptography` package**: Required by PyMySQL for MySQL 8's `caching_sha2_password` authentication — do not remove
+| Variable | Description |
+|---|---|
+| `APP_DATABASE_URL` | MySQL connection string |
+| `APP_TEST_DATABASE_URL` | MySQL connection string for tests |
+| `APP_JWT_SECRET` | Secret key for JWT signing |
+| `APP_CORS_ORIGINS` | Allowed CORS origins (JSON array) |
 
 ## Testing
 - 130 tests: 22 model + 11 auth + 10 users + 7 invites + 14 lists + 16 gifts + 12 list shares + 20 connections + 18 collections
 - Tests run against `boone_gifts_test` database
 - Each test wrapped in a transaction that rolls back (no persistent test data)
-- Test fixtures provide `db`, `client`, `admin_user`, `member_user`, auth tokens and headers, `sample_list`, `shared_list`, `connection`, `collection`, `collection_item`
-
-## Traefik Reverse Proxy
-- App is accessible at `https://boone-gifts-api.localhost` (no /etc/hosts entry needed)
-- Traefik runs separately from `/Users/trb74/Sites/traefik/docker-compose.yml`
-- **Traefik v3.6.1+ is required** — Docker Engine 29 (Docker Desktop 4.52+) raised the minimum API version to 1.44, breaking Traefik's Docker provider in older versions (v2.x and v3.x < 3.6.1) with an empty "Error response from daemon:" error
-- App container joins the external `proxy` network shared with Traefik
-- Traefik discovers the app via Docker labels (exposedbydefault=false, so `traefik.enable=true` is required)
-- TLS is terminated at Traefik using its default self-signed certificate
-- No port mapping needed on the app container — Traefik routes directly via the Docker network
-- Docker Desktop must have "Allow the default Docker socket to be used" enabled for Traefik to discover containers
-- If Traefik loses the socket connection after a Docker Desktop restart, do a full `docker compose down && up` on the Traefik stack (not just restart)
-- Traefik was upgraded from v2.10 to v3.6 during initial project setup to support Docker Engine 29+
+- `cryptography` package required by PyMySQL for MySQL 8's `caching_sha2_password` authentication — do not remove
 
 ## Key Design Decisions
 - **Router endpoints use `db.flush()`, not `db.commit()`** — transaction management is delegated to the caller. In tests, the fixture rolls back; in production, FastAPI's dependency teardown commits. New endpoints should follow this pattern.
-- Container idles with `sleep infinity` — FastAPI is started separately via `task app:run`
 - Packages install to `/opt/venv` (`UV_PROJECT_ENVIRONMENT=/opt/venv`) to avoid being shadowed by the bind mount; `/opt/venv/bin` is on `PATH`
-- Source is bind-mounted (`.:/app`) so code changes are reflected immediately
 - Uvicorn runs with `--reload` in dev so manual restarts are rarely needed
 - `app:restart` exists for edge cases where the file watcher doesn't pick up a change
-- After adding deps with `task app:add`, run `task app:up` to rebuild the image so deps persist across container recreations (uv.lock is copied into the image at build time)
-- `docs/plans/` contains design and implementation planning documents for features (gitignored, local-only)
+- After adding deps with `task app:add`, run `task app:up` to rebuild the image so deps persist across container recreations
