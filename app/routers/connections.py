@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import or_, select, update
 
 from app.dependencies import CurrentUser, DbSession
+from app.models.collection import Collection
+from app.models.collection_item import CollectionItem
 from app.models.connection import Connection
 from app.models.gift import Gift
 from app.models.gift_list import GiftList
@@ -225,6 +227,26 @@ def delete_connection(
         ).scalars().all()
         for share in shares_to_delete:
             db.delete(share)
+
+        # Remove collection items for both users referencing each other's lists
+        collection_ids_a = select(Collection.id).where(
+            Collection.owner_id == user_a
+        )
+        collection_ids_b = select(Collection.id).where(
+            Collection.owner_id == user_b
+        )
+        collection_items_to_delete = db.execute(
+            select(CollectionItem).where(
+                or_(
+                    (CollectionItem.collection_id.in_(collection_ids_a))
+                    & (CollectionItem.list_id.in_(list_ids_b)),
+                    (CollectionItem.collection_id.in_(collection_ids_b))
+                    & (CollectionItem.list_id.in_(list_ids_a)),
+                )
+            )
+        ).scalars().all()
+        for ci in collection_items_to_delete:
+            db.delete(ci)
 
     db.delete(connection)
     db.flush()

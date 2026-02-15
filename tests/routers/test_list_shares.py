@@ -112,3 +112,36 @@ def test_share_list_connected(
         json={"user_id": admin_user.id},
     )
     assert response.status_code == 201
+
+
+def test_unshare_removes_collection_items(
+    client, member_headers, shared_list, admin_user, db
+):
+    from app.models.collection import Collection
+    from app.models.collection_item import CollectionItem
+
+    admin_collection = Collection(name="Admin Collection", owner_id=admin_user.id)
+    db.add(admin_collection)
+    db.flush()
+
+    item = CollectionItem(
+        collection_id=admin_collection.id, list_id=shared_list.id
+    )
+    db.add(item)
+    db.flush()
+
+    response = client.delete(
+        f"/lists/{shared_list.id}/shares/{admin_user.id}",
+        headers=member_headers,
+    )
+    assert response.status_code == 204
+
+    from sqlalchemy import select
+
+    remaining = db.execute(
+        select(CollectionItem).where(
+            CollectionItem.collection_id == admin_collection.id,
+            CollectionItem.list_id == shared_list.id,
+        )
+    ).scalar_one_or_none()
+    assert remaining is None

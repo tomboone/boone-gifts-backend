@@ -56,15 +56,17 @@ app/
   main.py            # FastAPI app factory with CORS, routers, /health endpoint
   config.py          # Settings via pydantic-settings (APP_ env prefix, .env file)
   database.py        # SQLAlchemy engine, sessionmaker, Base
-  dependencies.py    # get_db, JWT token creation, get_current_user, require_admin, list access deps, require_connection
+  dependencies.py    # get_db, JWT token creation, get_current_user, require_admin, list access deps, require_connection, get_collection_for_owner
   models/
-    __init__.py      # Exports User, Invite, GiftList, Gift, ListShare, Connection
+    __init__.py      # Exports User, Invite, GiftList, Gift, ListShare, Connection, Collection, CollectionItem
     user.py          # User model (email, name, password_hash, role, is_active)
     invite.py        # Invite model (token, email, role, expires_at, used_at)
     gift_list.py     # GiftList model (name, description, owner_id)
     gift.py          # Gift model (name, description, url, price, claim tracking)
     list_share.py    # ListShare model (list_id, user_id, unique constraint)
     connection.py    # Connection model (requester_id, addressee_id, status, unique constraint)
+    collection.py      # Collection model (name, description, owner_id)
+    collection_item.py # CollectionItem model (collection_id, list_id, unique constraint)
   schemas/
     __init__.py
     user.py          # UserRead, UserUpdate
@@ -74,6 +76,7 @@ app/
     gift.py          # GiftCreate, GiftUpdate
     list_share.py    # ListShareCreate, ListShareRead
     connection.py    # ConnectionCreate, ConnectionUserRead, ConnectionRead
+    collection.py    # CollectionCreate, CollectionUpdate, CollectionRead, CollectionDetail, CollectionItemCreate
   routers/
     __init__.py
     auth.py          # POST /auth/login, /auth/register, /auth/refresh
@@ -83,6 +86,7 @@ app/
     gifts.py         # POST/PUT/DELETE /lists/{id}/gifts, POST/DELETE claim
     list_shares.py   # POST/GET/DELETE /lists/{id}/shares
     connections.py   # POST/GET/DELETE /connections, GET /connections/requests, POST accept
+    collections.py   # POST/GET/PUT/DELETE /collections, POST/DELETE /collections/{id}/items
   cli/
     __init__.py
     create_admin.py  # Interactive CLI to create first admin user
@@ -91,7 +95,7 @@ alembic/
   versions/          # Migration scripts
 tests/
   __init__.py
-  conftest.py        # Test fixtures: db, client, admin_user, member_user, tokens, headers, sample_list, shared_list, connection
+  conftest.py        # Test fixtures: db, client, admin_user, member_user, tokens, headers, sample_list, shared_list, connection, collection, collection_item
   models/
     __init__.py
     test_user.py     # User model tests (create, default role, unique email, password hashing)
@@ -100,6 +104,7 @@ tests/
     test_gift.py     # Gift model tests (create, minimal, claim)
     test_list_share.py # ListShare model tests (create, unique constraint)
     test_connection.py # Connection model tests (create, accept, unique constraint)
+    test_collection.py # Collection model tests (4 tests)
   routers/
     __init__.py
     test_auth.py     # Auth endpoint tests (login, register, refresh — 11 tests)
@@ -107,8 +112,9 @@ tests/
     test_invites.py  # Invites CRUD tests (admin-only — 7 tests)
     test_lists.py    # Lists CRUD tests (14 tests)
     test_gifts.py    # Gifts CRUD + claim tests (16 tests)
-    test_list_shares.py  # List shares tests (11 tests)
-    test_connections.py  # Connection router tests (19 tests)
+    test_list_shares.py  # List shares tests (12 tests)
+    test_connections.py  # Connection router tests (20 tests)
+    test_collections.py  # Collection router tests (18 tests)
 ```
 
 ## App Entrypoint
@@ -140,6 +146,13 @@ Top-level `main.py` imports `app` from `app.main`. The app factory (`create_app(
 - Removing a connection revokes all list shares and gift claims between both users
 - Admin user endpoints remain unrestricted
 
+## Collections
+- Personal organizational layer — users group gift lists into named collections
+- Collections can contain owned lists and lists shared by connections
+- A list can appear in multiple collections
+- Owner-only access — no sharing or admin override
+- Automatic cleanup: unsharing a list or removing a connection removes affected collection items
+
 ## Database
 - **MySQL shared container**: `/Users/trb74/Sites/mysql/mysql/docker-compose.yml` on the `proxy` network
 - **Dev database**: `mysql+pymysql://user:password@mysql_db:3306/boone_gifts`
@@ -149,10 +162,10 @@ Top-level `main.py` imports `app` from `app.main`. The app factory (`create_app(
 - **`cryptography` package**: Required by PyMySQL for MySQL 8's `caching_sha2_password` authentication — do not remove
 
 ## Testing
-- 106 tests: 18 model + 11 auth + 10 users + 7 invites + 14 lists + 16 gifts + 11 list shares + 19 connections
+- 130 tests: 22 model + 11 auth + 10 users + 7 invites + 14 lists + 16 gifts + 12 list shares + 20 connections + 18 collections
 - Tests run against `boone_gifts_test` database
 - Each test wrapped in a transaction that rolls back (no persistent test data)
-- Test fixtures provide `db`, `client`, `admin_user`, `member_user`, auth tokens and headers, `sample_list`, `shared_list`, `connection`
+- Test fixtures provide `db`, `client`, `admin_user`, `member_user`, auth tokens and headers, `sample_list`, `shared_list`, `connection`, `collection`, `collection_item`
 
 ## Traefik Reverse Proxy
 - App is accessible at `https://boone-gifts-api.localhost` (no /etc/hosts entry needed)

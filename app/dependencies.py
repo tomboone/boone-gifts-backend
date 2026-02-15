@@ -154,3 +154,35 @@ def require_connection(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You must be connected to share a list with this user.",
         )
+
+
+from app.models.collection import Collection
+
+
+def get_collection_for_owner(
+    collection_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: DbSession,
+) -> Collection:
+    """Load a collection and verify the current user owns it.
+
+    Parameters:
+        collection_id: The collection ID from the path.
+        user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        The collection if found and owned by user.
+
+    Raises:
+        HTTPException: 404 if not found, 403 if not owner.
+    """
+    collection = db.get(Collection, collection_id)
+    if collection is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if collection.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return collection
+
+
+OwnedCollection = Annotated[Collection, Depends(get_collection_for_owner)]

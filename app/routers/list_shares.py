@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.dependencies import CurrentUser, DbSession, OwnedList, require_connection
+from app.models.collection import Collection
+from app.models.collection_item import CollectionItem
 from app.models.list_share import ListShare
 from app.schemas.list_share import ListShareCreate, ListShareRead
 
@@ -51,4 +53,16 @@ def delete_share(user_id: int, gift_list: OwnedList, db: DbSession):
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     db.delete(share)
+
+    # Remove this list from any collections owned by the unshared user
+    collection_ids = select(Collection.id).where(Collection.owner_id == user_id)
+    items_to_delete = db.execute(
+        select(CollectionItem).where(
+            CollectionItem.collection_id.in_(collection_ids),
+            CollectionItem.list_id == gift_list.id,
+        )
+    ).scalars().all()
+    for item in items_to_delete:
+        db.delete(item)
+
     db.flush()

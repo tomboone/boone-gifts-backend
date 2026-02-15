@@ -268,3 +268,48 @@ def test_disconnect_unclaims_gifts(
     db.refresh(gift)
     assert gift.claimed_by_id is None
     assert gift.claimed_at is None
+
+
+def test_disconnect_removes_collection_items(
+    client, member_user, member_headers, admin_user, connection, db
+):
+    from app.models.gift_list import GiftList
+    from app.models.list_share import ListShare
+    from app.models.collection import Collection
+    from app.models.collection_item import CollectionItem
+
+    admin_list = GiftList(name="Admin's List", owner_id=admin_user.id)
+    db.add(admin_list)
+    db.flush()
+
+    share = ListShare(list_id=admin_list.id, user_id=member_user.id)
+    db.add(share)
+    db.flush()
+
+    member_collection = Collection(
+        name="Member Collection", owner_id=member_user.id
+    )
+    db.add(member_collection)
+    db.flush()
+
+    item = CollectionItem(
+        collection_id=member_collection.id, list_id=admin_list.id
+    )
+    db.add(item)
+    db.flush()
+
+    response = client.delete(
+        f"/connections/{connection.id}",
+        headers=member_headers,
+    )
+    assert response.status_code == 204
+
+    from sqlalchemy import select
+
+    remaining = db.execute(
+        select(CollectionItem).where(
+            CollectionItem.collection_id == member_collection.id,
+            CollectionItem.list_id == admin_list.id,
+        )
+    ).scalar_one_or_none()
+    assert remaining is None

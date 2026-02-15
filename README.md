@@ -120,6 +120,15 @@ task app:lock                  # Regenerate lock file
 - `GET /lists/{id}/shares` -- List shares
 - `DELETE /lists/{id}/shares/{user_id}` -- Revoke a share
 
+### Collections (`/collections`)
+- `POST /collections` -- Create a collection
+- `GET /collections` -- List your collections
+- `GET /collections/{id}` -- Get collection with its lists
+- `PUT /collections/{id}` -- Update a collection
+- `DELETE /collections/{id}` -- Delete a collection
+- `POST /collections/{id}/items` -- Add a list to a collection
+- `DELETE /collections/{id}/items/{list_id}` -- Remove a list from a collection
+
 ## Environment Variables
 
 | Variable | Description |
@@ -135,4 +144,4 @@ task app:lock                  # Regenerate lock file
 task app:test
 ```
 
-106 tests run against a separate test database. Each test is wrapped in a transaction that rolls back, leaving no persistent data.
+130 tests run against a separate test database. Each test is wrapped in a transaction that rolls back, leaving no persistent data.
