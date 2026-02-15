@@ -15,24 +15,24 @@ FastAPI backend for the Boone Gifts project. Python 3.14, runs entirely in Docke
 
 ## Development Workflow
 ```
-task app:up          # Build image and start container (detached, idle)
-task app:run         # Start FastAPI with --reload inside the container
-task app:restart     # Touch main.py to trigger the reload watcher
-task app:stop        # Stop container without removing
-task app:down        # Stop and remove container
-task app:test        # Run test suite (pytest)
-task app:test-file -- <path>  # Run a specific test file or test function
-task app:create-admin  # Create an admin user (interactive prompts)
-task app:migrate     # Run database migrations (alembic upgrade head)
-task app:migration -- 'description'  # Create a new migration
+task up              # Build image and start container (detached, runs uvicorn)
+task logs            # Follow the app container logs
+task restart         # Restart the app container
+task stop            # Stop container without removing
+task down            # Stop and remove container
+tasktest        # Run test suite (pytest)
+tasktest-file -- <path>  # Run a specific test file or test function
+taskcreate-admin  # Create an admin user (interactive prompts)
+taskmigrate     # Run database migrations (alembic upgrade head)
+taskmigration -- 'description'  # Create a new migration
 ```
 
 ## Dependency Management
 ```
-task app:add -- <package>      # Add a package (updates pyproject.toml + uv.lock + installs)
-task app:remove -- <package>   # Remove a package (updates pyproject.toml + uv.lock + uninstalls)
-task app:lock                  # Regenerate uv.lock from pyproject.toml
-task app:sync                  # Install all deps from uv.lock
+task add -- <package>      # Add a package (updates pyproject.toml + uv.lock + installs)
+task remove -- <package>   # Remove a package (updates pyproject.toml + uv.lock + uninstalls)
+task lock                  # Regenerate uv.lock from pyproject.toml
+task sync                  # Install all deps from uv.lock
 ```
 
 ## Project Structure
@@ -105,7 +105,7 @@ Top-level `main.py` imports `app` from `app.main`. The app factory (`create_app(
 - **Route protection**: `get_current_user` (401 if invalid), `require_admin` (403 if not admin)
 - **Defense in depth**: `get_current_user` rejects refresh tokens and checks `is_active` — inactive users cannot authenticate even with a valid token
 - **Registration**: Invite-only — the registrant's email comes from the invite record, not the request body
-- **First admin**: Created via `task app:create-admin`
+- **First admin**: Created via `taskcreate-admin`
 - **Gift list access**: `get_list_for_owner` (403 if not owner), `get_list_for_viewer` (403 if not owner or shared)
 - **Gift responses**: `GiftOwnerRead` (no claim fields) for owners, `GiftRead` (with claim fields) for shared users
 
@@ -127,6 +127,6 @@ Top-level `main.py` imports `app` from `app.main`. The app factory (`create_app(
 ## Key Design Decisions
 - **Router endpoints use `db.flush()`, not `db.commit()`** — transaction management is delegated to the caller. In tests, the fixture rolls back; in production, FastAPI's dependency teardown commits. New endpoints should follow this pattern.
 - Packages install to `/opt/venv` (`UV_PROJECT_ENVIRONMENT=/opt/venv`) to avoid being shadowed by the bind mount; `/opt/venv/bin` is on `PATH`
-- Uvicorn runs with `--reload` in dev so manual restarts are rarely needed
-- `app:restart` exists for edge cases where the file watcher doesn't pick up a change
-- After adding deps with `task app:add`, run `task app:up` to rebuild the image so deps persist across container recreations
+- Uvicorn runs with `--reload` in the container so manual restarts are rarely needed
+- `task restart` restarts the container for edge cases where the file watcher doesn't pick up a change
+- After adding deps with `task add`, run `task up` to rebuild the image so deps persist across container recreations
