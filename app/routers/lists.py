@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import select, or_
 
 from app.dependencies import CurrentUser, DbSession, OwnedList, ViewableList
@@ -28,19 +28,29 @@ def create_list(request: GiftListCreate, user: CurrentUser, db: DbSession):
 
 
 @router.get("", response_model=list[GiftListRead])
-def list_lists(user: CurrentUser, db: DbSession):
-    shared_list_ids = select(ListShare.list_id).where(
-        ListShare.user_id == user.id
-    )
-    lists = db.execute(
-        select(GiftList).where(
+def list_lists(
+    user: CurrentUser,
+    db: DbSession,
+    filter: str | None = Query(default=None, pattern="^(owned|shared)$"),
+):
+    if filter == "owned":
+        query = select(GiftList).where(GiftList.owner_id == user.id)
+    elif filter == "shared":
+        shared_list_ids = select(ListShare.list_id).where(
+            ListShare.user_id == user.id
+        )
+        query = select(GiftList).where(GiftList.id.in_(shared_list_ids))
+    else:
+        shared_list_ids = select(ListShare.list_id).where(
+            ListShare.user_id == user.id
+        )
+        query = select(GiftList).where(
             or_(
                 GiftList.owner_id == user.id,
                 GiftList.id.in_(shared_list_ids),
             )
         )
-    ).scalars().all()
-    return lists
+    return db.execute(query).scalars().all()
 
 
 @router.get("/{list_id}")

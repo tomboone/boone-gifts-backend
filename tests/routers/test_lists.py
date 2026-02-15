@@ -47,6 +47,31 @@ def test_list_lists_excludes_unshared(client, admin_user, admin_headers, sample_
     assert "Member's Wishlist" not in names
 
 
+def test_list_lists_filter_owned(client, member_user, member_headers, sample_list, shared_list):
+    """filter=owned returns only lists the user owns."""
+    response = client.get("/lists?filter=owned", headers=member_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Member's Wishlist"
+
+
+def test_list_lists_filter_shared(client, admin_user, admin_headers, shared_list):
+    """filter=shared returns only lists shared with the user (not owned)."""
+    response = client.get("/lists?filter=shared", headers=admin_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Member's Wishlist"
+
+
+def test_list_lists_filter_shared_excludes_owned(client, member_user, member_headers, sample_list):
+    """filter=shared does not return owned lists."""
+    response = client.get("/lists?filter=shared", headers=member_headers)
+    assert response.status_code == 200
+    assert len(response.json()) == 0
+
+
 def test_get_list_as_owner(client, member_user, member_headers, sample_list):
     response = client.get(f"/lists/{sample_list.id}", headers=member_headers)
     assert response.status_code == 200

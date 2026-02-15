@@ -45,6 +45,7 @@ class GiftListRead(BaseModel):
     name: str
     description: str | None
     owner_id: int
+    owner_name: str
     created_at: datetime
     updated_at: datetime
 

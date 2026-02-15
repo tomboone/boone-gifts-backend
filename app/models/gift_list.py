@@ -18,6 +18,12 @@ class GiftList(Base):
         server_default=func.now(), onupdate=func.now()
     )
 
+    owner: Mapped["User"] = relationship("User", lazy="selectin", overlaps="lists")
+
     gifts: Mapped[list["Gift"]] = relationship(
         "Gift", lazy="selectin", cascade="all, delete-orphan"
     )
+
+    @property
+    def owner_name(self) -> str:
+        return self.owner.name
