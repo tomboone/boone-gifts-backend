@@ -33,25 +33,19 @@ REST API for Boone Gifts, a gift list and wishlist platform. Users create gift l
 3. Build and start the container:
 
    ```
-   task app:up
+   task up
    ```
 
 4. Run database migrations:
 
    ```
-   task app:migrate
+   task migrate
    ```
 
 5. Create the first admin user:
 
    ```
-   task app:create-admin
-   ```
-
-6. Start the dev server:
-
-   ```
-   task app:run
+   task create-admin
    ```
 
 The API is available at `https://boone-gifts-api.localhost` (via Traefik).
@@ -59,21 +53,22 @@ The API is available at `https://boone-gifts-api.localhost` (via Traefik).
 ## Development
 
 ```
-task app:up          # Build image and start container
-task app:run         # Start FastAPI with --reload
-task app:test        # Run test suite
-task app:test-file -- <path>  # Run a specific test file
-task app:migrate     # Apply database migrations
-task app:migration -- 'description'  # Generate a new migration
+task up              # Build image and start container (runs uvicorn)
+task logs            # Follow container logs
+task restart         # Restart the container
+task test            # Run test suite
+task test-file -- <path>  # Run a specific test file
+task migrate         # Apply database migrations
+task migration -- 'description'  # Generate a new migration
 ```
 
 ### Dependency Management
 
 ```
-task app:add -- <package>      # Add a package
-task app:remove -- <package>   # Remove a package
-task app:sync                  # Install all deps from lock file
-task app:lock                  # Regenerate lock file
+task add -- <package>      # Add a package
+task remove -- <package>   # Remove a package
+task sync                  # Install all deps from lock file
+task lock                  # Regenerate lock file
 ```
 
 ## API Overview
@@ -141,7 +136,7 @@ task app:lock                  # Regenerate lock file
 ## Testing
 
 ```
-task app:test
+task test
 ```
 
 130 tests run against a separate test database. Each test is wrapped in a transaction that rolls back, leaving no persistent data.
